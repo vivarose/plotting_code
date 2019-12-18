@@ -24,4 +24,4 @@ def myheatmap(n, colorbarlabel=None, **kwargs):
     cbar = plt.colorbar(drawedges=False)
     if colorbarlabel:
         cbar.set_label(colorbarlabel)
- 
+    return plt.gca()
