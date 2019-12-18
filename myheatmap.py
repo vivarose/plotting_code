@@ -16,6 +16,7 @@ def listwrap(currentlist):
     listwrap[-1]=listwrap[-2]+botstep
     return listwrap
 
+# n is a pandas dataframe
 def myheatmap(n, colorbarlabel=None, **kwargs):
     plt.pcolormesh( listwrap(n.columns),listwrap(n.index), n, **kwargs)
     plt.xlabel(n.columns.name)
