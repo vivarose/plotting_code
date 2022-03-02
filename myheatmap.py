@@ -28,8 +28,8 @@ def myheatmap(df, colorbarlabel=None, **kwargs):
     plt.xlabel(df.columns.name)
     plt.ylabel(df.index.name)
     ax = plt.gca()
-	
 	# Choose aesthetics similar to seaborn heatmap. In particular, no frames.
+	
     ax.set_frame_on(False)
     cbar = plt.colorbar(drawedges=False)
     cbar.outline.set_visible(False)
