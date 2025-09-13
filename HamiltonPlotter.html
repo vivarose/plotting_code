@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+
+
+<!-- 
+	Viva R. Horowitz
+	vibe-coded with Google Gemini
+	2025-09-13
+ -->
+
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HamiltonPlotter</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for plotting -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Chart.js plugin for error bars (v4 compatible) -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-error-bars@4.1.0/build/index.umd.min.js"></script>
+
+    <style>
+        /* Custom scrollbar for a cleaner look */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <div class="flex flex-col md:flex-row h-screen">
+
+        <!-- ===== CONTROLS PANEL (LEFT) ===== -->
+        <div class="w-full md:w-1/3 lg:w-1/4 h-1/2 md:h-screen bg-white shadow-lg p-6 flex flex-col">
+            <h1 class="text-3xl font-bold text-gray-800 mb-1">HamiltonPlotter</h1>
+            <p class="text-sm text-gray-500 mb-6">A tool for simple data visualization and analysis.</p>
+
+            <div class="flex-grow overflow-y-auto custom-scrollbar pr-2">
+                
+                <!-- 1. Sample Data -->
+                <div class="mb-4">
+                    <label for="sample-data-select" class="block text-sm font-medium text-gray-700 mb-1">1. Choose Sample Data</label>
+                    <select id="sample-data-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                        <!-- Options will be added by JS -->
+                    </select>
+                </div>
+
+                <!-- 2. Data Input -->
+                <div class="mb-4">
+                    <label for="data-input" class="block text-sm font-medium text-gray-700 mb-1">2. Paste or Edit Data Below</label>
+                    <textarea id="data-input" rows="10" class="w-full p-2 border border-gray-300 rounded-md shadow-sm font-mono text-xs focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    <button id="load-data-btn" class="mt-2 w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-150">Load Data</button>
+                </div>
+
+                <!-- 3. Select Axes -->
+                <div class="mb-4">
+                    <h3 class="text-sm font-medium text-gray-700 mb-2">3. Select Axes</h3>
+                    <div id="x-axis-container" class="p-4 border rounded-md bg-gray-50">
+                        <p class="text-gray-500 text-sm">Load data to select axes.</p>
+                    </div>
+                    <div id="y-axis-container" class="mt-2 p-4 border rounded-md bg-gray-50">
+                        <p class="text-gray-500 text-sm">Load data to select axes.</p>
+                    </div>
+                </div>
+
+                <!-- 4. Plot Options -->
+                <div class="mb-4">
+                    <h3 class="text-sm font-medium text-gray-700 mb-2">4. Plot Options</h3>
+                    <div class="space-y-2">
+                        <div>
+                            <label for="plot-title" class="text-xs text-gray-600">Plot Title</label>
+                            <input type="text" id="plot-title" value="My Plot" class="w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                        </div>
+                        <div>
+                            <label for="x-label" class="text-xs text-gray-600">X-Axis Label</label>
+                            <input type="text" id="x-label" class="w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                        </div>
+                        <div>
+                            <label for="y-label" class="text-xs text-gray-600">Y-Axis Label</label>
+                            <input type="text" id="y-label" class="w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. Actions -->
+                <div class="mb-4">
+                    <h3 class="text-sm font-medium text-gray-700 mb-2">5. Actions</h3>
+                    <div class="flex flex-col space-y-2">
+                        <button id="plot-btn" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-150 font-semibold">Generate Plot</button>
+                        <button id="fit-btn" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-150 font-semibold">Perform Linear Fit</button>
+                    </div>
+                </div>
+
+                <!-- 6. Fit Results -->
+                <div class="mt-4">
+                    <h3 class="text-sm font-medium text-gray-700 mb-2">6. Fit Results</h3>
+                    <div id="fit-results-container" class="p-4 border rounded-md bg-gray-50 text-sm space-y-2">
+                        <p class="text-gray-500">No fit performed yet.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== PLOT AREA (RIGHT) ===== -->
+        <div class="w-full md:w-2/3 lg:w-3/4 h-1/2 md:h-screen bg-gray-100 p-6 flex items-center justify-center">
+            <div class="w-full h-full bg-white rounded-lg shadow-md p-4">
+                <canvas id="plot-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL FOR FIT SELECTION ===== -->
+    <div id="fit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden">
+        <div class="bg-white p-8 rounded-lg shadow-xl w-11/12 md:w-1/3">
+            <h2 class="text-xl font-bold mb-4">Select Y-Axis for Fit</h2>
+            <p class="mb-6 text-gray-600">Multiple Y-axes are plotted. Please choose one to perform the linear fit on.</p>
+            <div id="fit-options-container" class="space-y-2 mb-6">
+                <!-- Radio buttons will be inserted here by JS -->
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                <button id="modal-ok-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === GLOBAL VARIABLES ===
+        let chartInstance = null;
+        let dataframe = { headers: [], rows: [] };
+
+        const sampleDataSets = {
+            "Linear Motion": `# Data for an object with constant acceleration.\n# Plot Position, Velocity, and/or Acceleration vs. Time.\nTime (s)\tTime Uncertainty (s)\tPosition (m)\tPos Uncertainty (m)\tVelocity (m/s)\tVel Uncertainty (m/s)\tAcceleration (m/s^2)\tAccel Uncertainty (m/s^2)\n0.0\t0.02\t0.0\t0.2\t0.0\t0.5\t9.8\t0.4\n1.0\t0.02\t4.9\t0.2\t9.8\t0.5\t9.8\t0.4\n2.0\t0.02\t19.5\t0.3\t19.6\t0.6\t9.8\t0.4\n3.0\t0.02\t44.0\t0.3\t29.4\t0.6\t9.8\t0.4\n4.0\t0.02\t78.5\t0.4\t39.2\t0.7\t9.8\t0.4`,
+            "Biology (Plant Growth)": `# Height of a plant over time under constant light.\nDay\tDay Uncertainty\tHeight (cm)\tHeight Uncertainty (cm)\n1\t0.5\t2.1\t0.2\n3\t0.5\t4.3\t0.2\n5\t0.5\t6.0\t0.3\n7\t0.5\t8.2\t0.3\n9\t0.5\t9.8\t0.3`,
+            "Psychology (Hick's Law)": `# Reaction time increases with the number of choices (Hick's Law).\n# 'Bits' is calculated as log2(number_of_choices).\nBits of Information\tBits Uncertainty\tReaction Time (ms)\tRT Uncertainty (ms)\n1\t0\t320\t15\n2\t0\t460\t20\n3\t0\t590\t22\n4\t0\t710\t25\n5\t0\t880\t30`,
+            "Neuroscience (Firing Rate)": `# Firing rate of a neuron in response to stimulus intensity.\nStimulus Intensity (nA)\tIntensity Uncertainty (nA)\tFiring Rate (Hz)\tRate Uncertainty (Hz)\n10\t1.0\t5\t2\n20\t1.0\t12\t3\n30\t1.0\t19\t3\n40\t1.0\t26\t4\n50\t1.0\t34\t4`,
+            "Simple Pendulum": `# Data for a simple pendulum's swing.\n# Plot Angle vs. Time for sinusoidal motion.\nTime (s)\tAngle (rad)\tAngle Uncertainty (rad)\n0.00\t0.52\t0.01\n0.25\t0.37\t0.01\n0.50\t0.00\t0.01\n0.75\t-0.37\t0.01\n1.00\t-0.52\t0.01\n1.25\t-0.37\t0.01\n1.50\t0.00\t0.01`,
+            "Ohm's Law": `# Data for a simple circuit to verify Ohm's Law (V=IR).\n# Plot Voltage vs. Current to find resistance.\nCurrent (A)\tCurrent Uncertainty (A)\tVoltage (V)\tVoltage Uncertainty (V)\n0.1\t0.01\t1.05\t0.05\n0.2\t0.01\t1.98\t0.05\n0.3\t0.01\t3.01\t0.05\n0.4\t0.01\t4.05\t0.05\n0.5\t0.01\t4.95\t0.05`
+        };
+        
+        const plotColors = ['rgba(54, 162, 235, 0.8)', 'rgba(255, 99, 132, 0.8)', 'rgba(75, 192, 192, 0.8)', 'rgba(255, 206, 86, 0.8)', 'rgba(153, 102, 255, 0.8)', 'rgba(255, 159, 64, 0.8)'];
+
+        // === INITIALIZATION ===
+        document.addEventListener('DOMContentLoaded', () => {
+            // Correctly register the error bar plugin's components
+            if (window.ChartErrorBars) {
+                // The library exports its components in an object. Spreading the values registers them all.
+                Chart.register(...Object.values(window.ChartErrorBars));
+            }
+
+            // Populate sample data dropdown
+            const sampleSelect = document.getElementById('sample-data-select');
+            Object.keys(sampleDataSets).forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                sampleSelect.appendChild(option);
+            });
+            
+            // Load default sample data
+            loadSampleData();
+
+            // Setup event listeners
+            sampleSelect.addEventListener('change', loadSampleData);
+            document.getElementById('load-data-btn').addEventListener('click', parseData);
+            document.getElementById('plot-btn').addEventListener('click', generatePlot);
+            document.getElementById('fit-btn').addEventListener('click', handleFitButtonClick);
+            document.getElementById('modal-cancel-btn').addEventListener('click', () => document.getElementById('fit-modal').classList.add('hidden'));
+        });
+
+        // === CORE FUNCTIONS ===
+
+        function loadSampleData() {
+            const selectedName = document.getElementById('sample-data-select').value;
+            document.getElementById('data-input').value = sampleDataSets[selectedName];
+        }
+
+        function parseData() {
+            const text = document.getElementById('data-input').value.trim();
+            const lines = text.split('\n').filter(line => line && !line.startsWith('#'));
+            if (lines.length < 2) {
+                alert("Error: Data must have a header row and at least one data row.");
+                return;
+            }
+
+            const delimiter = lines[0].includes('\t') ? '\t' : ',';
+            const headers = lines[0].split(delimiter).map(h => h.trim());
+            const rows = lines.slice(1).map(line => {
+                const values = line.split(delimiter).map(v => v.trim());
+                const rowObj = {};
+                headers.forEach((header, i) => {
+                    rowObj[header] = parseFloat(values[i]);
+                });
+                return rowObj;
+            });
+
+            dataframe = { headers, rows };
+            updateAxisSelectionUI();
+        }
+
+        function updateAxisSelectionUI() {
+            const { headers } = dataframe;
+            if (headers.length === 0) return;
+
+            // X-Axis
+            const xContainer = document.getElementById('x-axis-container');
+            xContainer.innerHTML = '<p class="font-semibold mb-2">X-Axis</p>';
+            const xOptions = headers.map((header, i) => `
+                <label class="flex items-center space-x-2 text-sm">
+                    <input type="radio" name="x-axis" value="${header}" ${i === 0 ? 'checked' : ''}>
+                    <span>${header}</span>
+                </label>
+            `).join('');
+            xContainer.innerHTML += xOptions;
+            
+            xContainer.innerHTML += `<hr class="my-2"><p class="text-sm mb-1">X Uncertainty (Optional)</p>`;
+            const xErrorSelect = document.createElement('select');
+            xErrorSelect.id = 'x-error-select';
+            xErrorSelect.className = 'w-full p-1 border rounded text-sm';
+            xErrorSelect.innerHTML = `<option value="None">None</option>` + headers.map(h => `<option value="${h}">${h}</option>`).join('');
+            xContainer.appendChild(xErrorSelect);
+            
+            // Y-Axis
+            const yContainer = document.getElementById('y-axis-container');
+            yContainer.innerHTML = '<p class="font-semibold mb-2">Y-Axes</p>';
+            const yOptions = headers.map((header) => `
+                <div class="grid grid-cols-2 gap-2 items-center mb-1">
+                    <label class="flex items-center space-x-2 text-sm col-span-1">
+                        <input type="checkbox" class="y-axis-checkbox" value="${header}">
+                        <span>${header}</span>
+                    </label>
+                    <select class="y-error-select w-full p-1 border rounded text-xs col-span-1" data-y-col="${header}">
+                        <option value="None">None (Y-Err)</option>
+                        ${headers.map(h => `<option value="${h}">${h}</option>`).join('')}
+                    </select>
+                </div>
+            `).join('');
+            yContainer.innerHTML += yOptions;
+
+            // Auto-update labels on selection
+            document.querySelectorAll('input[name="x-axis"]').forEach(radio => {
+                radio.addEventListener('change', () => {
+                    document.getElementById('x-label').value = radio.value;
+                });
+            });
+            document.querySelectorAll('.y-axis-checkbox').forEach(cb => {
+                cb.addEventListener('change', updateYLabel);
+            });
+            // Set initial labels
+            document.getElementById('x-label').value = headers[0];
+            updateYLabel();
+        }
+        
+        function updateYLabel() {
+            const selected = Array.from(document.querySelectorAll('.y-axis-checkbox:checked')).map(cb => cb.value);
+            document.getElementById('y-label').value = selected.join(', ');
+        }
+
+        function generatePlot() {
+            if (dataframe.rows.length === 0) {
+                alert("Please load data first.");
+                return;
+            }
+            
+            document.getElementById('fit-results-container').innerHTML = '<p class="text-gray-500">No fit performed yet.</p>';
+
+            const xCol = document.querySelector('input[name="x-axis"]:checked').value;
+            const xErrCol = document.getElementById('x-error-select').value;
+            const yCheckboxes = document.querySelectorAll('.y-axis-checkbox:checked');
+            
+            if (yCheckboxes.length === 0) {
+                alert("Please select at least one Y-axis to plot.");
+                return;
+            }
+
+            const datasets = Array.from(yCheckboxes).map((cb, index) => {
+                const yCol = cb.value;
+                const yErrCol = document.querySelector(`.y-error-select[data-y-col="${yCol}"]`).value;
+                
+                const dataPoints = dataframe.rows.map(row => {
+                    return {
+                        x: row[xCol],
+                        y: row[yCol],
+                        xMin: xErrCol !== 'None' && row[xErrCol] != null ? row[xCol] - row[xErrCol] : undefined,
+                        xMax: xErrCol !== 'None' && row[xErrCol] != null ? row[xCol] + row[xErrCol] : undefined,
+                        yMin: yErrCol !== 'None' && row[yErrCol] != null ? row[yCol] - row[yErrCol] : undefined,
+                        yMax: yErrCol !== 'None' && row[yErrCol] != null ? row[yCol] + row[yErrCol] : undefined,
+                    };
+                }).filter(p => !isNaN(p.x) && !isNaN(p.y));
+                
+                const color = plotColors[index % plotColors.length];
+
+                return {
+                    label: yCol,
+                    data: dataPoints,
+                    backgroundColor: color,
+                    errorBarColor: 'rgba(0, 0, 0, 0.6)',
+                    errorBarWidth: 1.5,
+                    errorBarWhiskerRatio: 0.5,
+                    errorBarWhiskerColor: 'rgba(0, 0, 0, 0.6)'
+                };
+            });
+
+            const ctx = document.getElementById('plot-canvas').getContext('2d');
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'scatterWithErrorBars',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            align: 'center',
+                            labels: {
+                                font: { size: 14 },
+                                boxWidth: 20,
+                                padding: 25,
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: document.getElementById('plot-title').value,
+                            font: { size: 20, weight: 'bold' },
+                             padding: {
+                                top: 10,
+                                bottom: 10 
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: (${context.parsed.x}, ${context.parsed.y})`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: document.getElementById('x-label').value,
+                                font: { size: 18 }
+                            },
+                            ticks: { font: { size: 14 } }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: document.getElementById('y-label').value,
+                                font: { size: 18 }
+                            },
+                            ticks: { font: { size: 14 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function handleFitButtonClick() {
+            if (!chartInstance) {
+                alert("Please generate a plot first.");
+                return;
+            }
+            const yCols = chartInstance.data.datasets.filter(ds => !ds.label.startsWith("Fit for")).map(ds => ds.label);
+
+            if (yCols.length === 0) {
+                alert("No data available to fit.");
+                return;
+            } else if (yCols.length === 1) {
+                performLinearFit(yCols[0]);
+            } else {
+                // Show modal to choose
+                const modal = document.getElementById('fit-modal');
+                const optionsContainer = document.getElementById('fit-options-container');
+                optionsContainer.innerHTML = yCols.map((col, i) => `
+                    <label class="flex items-center space-x-2 text-sm p-2 rounded hover:bg-gray-100">
+                        <input type="radio" name="fit-y-axis" value="${col}" ${i === 0 ? 'checked' : ''}>
+                        <span>${col}</span>
+                    </label>
+                `).join('');
+                document.getElementById('modal-ok-btn').onclick = () => {
+                    const selectedCol = document.querySelector('input[name="fit-y-axis"]:checked').value;
+                    performLinearFit(selectedCol);
+                    modal.classList.add('hidden');
+                };
+                modal.classList.remove('hidden');
+            }
+        }
+        
+        function performLinearFit(yColToFit) {
+             const originalDataset = chartInstance.data.datasets.find(ds => ds.label === yColToFit);
+             if (!originalDataset || originalDataset.data.length < 2) {
+                alert("Need at least two data points to perform a fit.");
+                return;
+             }
+
+             const xData = originalDataset.data.map(d => d.x);
+             const yData = originalDataset.data.map(d => d.y);
+             
+             const res = linearRegression(xData, yData);
+             if (!res) {
+                alert("Could not perform linear regression. Check data for errors.");
+                return;
+             }
+
+             const xFit = [Math.min(...xData), Math.max(...xData)];
+             const yFit = xFit.map(x => res.slope * x + res.intercept);
+             
+             const fitLabel = `Fit for '${yColToFit}'`;
+
+             const resultsContainer = document.getElementById('fit-results-container');
+             resultsContainer.innerHTML = `
+                <p class="font-semibold text-gray-800">Results for '${yColToFit}':</p>
+                <div>
+                    <p class="font-mono"><strong>Slope (m):</strong> ${formatFitParameter(res.slope, res.slope_stderr)}</p>
+                    <p class="font-mono"><strong>Intercept (b):</strong> ${formatFitParameter(res.intercept, res.intercept_stderr)}</p>
+                    <p class="font-mono"><strong>R-squared:</strong> ${res.r_squared.toFixed(4)}</p>
+                </div>
+            `;
+             
+             const oldFitIndex = chartInstance.data.datasets.findIndex(ds => ds.label === fitLabel);
+             if (oldFitIndex > -1) {
+                chartInstance.data.datasets.splice(oldFitIndex, 1);
+             }
+
+             chartInstance.data.datasets.push({
+                label: fitLabel,
+                data: [{x: xFit[0], y: yFit[0]}, {x: xFit[1], y: yFit[1]}],
+                type: 'line',
+                borderColor: 'rgba(239, 68, 68, 0.8)', 
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                pointRadius: 0
+             });
+             chartInstance.update();
+        }
+
+        // === HELPER FUNCTIONS ===
+        
+        function linearRegression(x, y) {
+            const n = x.length;
+            let sx = 0, sy = 0, sxy = 0, sx2 = 0, sy2 = 0;
+            for(let i = 0; i < n; i++) {
+                sx += x[i];
+                sy += y[i];
+                sxy += x[i] * y[i];
+                sx2 += x[i] * x[i];
+                sy2 += y[i] * y[i];
+            }
+            const slope = (n * sxy - sx * sy) / (n * sx2 - sx * sx);
+            const intercept = (sy - slope * sx) / n;
+            const r_squared = Math.pow((n * sxy - sx * sy) / Math.sqrt((n * sx2 - sx * sx) * (n * sy2 - sy * sy)), 2);
+
+            let sse = 0;
+            for (let i = 0; i < n; i++) {
+                sse += Math.pow(y[i] - (slope * x[i] + intercept), 2);
+            }
+            if (n <= 2) return { slope, intercept, r_squared, slope_stderr: NaN, intercept_stderr: NaN };
+            
+            const std_err = Math.sqrt(sse / (n - 2));
+            const slope_stderr = std_err / Math.sqrt(sx2 - (sx * sx) / n);
+            const intercept_stderr = slope_stderr * Math.sqrt(sx2 / n);
+            
+            return { slope, intercept, r_squared, slope_stderr, intercept_stderr };
+        }
+
+        function formatFitParameter(value, uncertainty) {
+            if (uncertainty === null || uncertainty <= 0 || !isFinite(uncertainty)) {
+                return `${value.toExponential(3)} &plusmn; ${uncertainty ? uncertainty.toExponential(2) : 'N/A'}`;
+            }
+        
+            const exponent = Math.floor(Math.log10(Math.abs(uncertainty)));
+            const decimalPlaces = -exponent + 1; 
+        
+            const valueExponent = value !== 0 ? Math.floor(Math.log10(Math.abs(value))) : 0;
+        
+            if (valueExponent < -3 || valueExponent > 4) {
+                // Scientific notation
+                const normValue = value / Math.pow(10, valueExponent);
+                const normUncertainty = uncertainty / Math.pow(10, valueExponent);
+                const normExponent = Math.floor(Math.log10(Math.abs(normUncertainty)));
+                const normDecimalPlaces = -normExponent + 1;
+                
+                const valStr = normValue.toFixed(normDecimalPlaces);
+                const errStr = normUncertainty.toFixed(normDecimalPlaces);
+                
+                return `(${valStr} &plusmn; ${errStr})e${valueExponent}`;
+            } else {
+                // Fixed-point notation
+                if (decimalPlaces >= 0) {
+                    return `${value.toFixed(decimalPlaces)} &plusmn; ${uncertainty.toFixed(decimalPlaces)}`;
+                } else {
+                    const roundedValue = Math.round(value / Math.pow(10, -decimalPlaces)) * Math.pow(10, -decimalPlaces);
+                    const roundedUncertainty = Math.round(uncertainty / Math.pow(10, -decimalPlaces)) * Math.pow(10, -decimalPlaces);
+                    return `${roundedValue.toFixed(0)} &plusmn; ${roundedUncertainty.toFixed(0)}`;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
