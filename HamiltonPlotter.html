@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 
-
 <!-- 
 	Viva R. Horowitz
 	vibe-coded with Google Gemini
 	2025-09-13
  -->
-
 
 <head>
     <meta charset="UTF-8">
@@ -77,6 +75,19 @@
                 <!-- 4. Plot Options -->
                 <div class="mb-4">
                     <h3 class="text-sm font-medium text-gray-700 mb-2">4. Plot Options</h3>
+                    <div class="mb-3">
+                        <label class="text-xs text-gray-600">Chart Type</label>
+                        <div id="chart-type-selector" class="flex items-center space-x-4 mt-1 bg-gray-200 p-1 rounded-lg">
+                            <label class="flex-1 text-center">
+                                <input type="radio" name="chart-type" value="scatter" class="sr-only" checked>
+                                <span class="chart-type-btn chart-type-btn-active w-full block p-1 rounded-md cursor-pointer text-sm">Scatter</span>
+                            </label>
+                            <label class="flex-1 text-center">
+                                <input type="radio" name="chart-type" value="bar" class="sr-only">
+                                <span class="chart-type-btn w-full block p-1 rounded-md cursor-pointer text-sm">Bar</span>
+                            </label>
+                        </div>
+                    </div>
                     <div class="space-y-2">
                         <div>
                             <label for="plot-title" class="text-xs text-gray-600">Plot Title</label>
@@ -155,7 +166,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             // Correctly register the error bar plugin's components
             if (window.ChartErrorBars) {
-                // The library exports its components in an object. Spreading the values registers them all.
                 Chart.register(...Object.values(window.ChartErrorBars));
             }
 
@@ -177,6 +187,24 @@
             document.getElementById('plot-btn').addEventListener('click', generatePlot);
             document.getElementById('fit-btn').addEventListener('click', handleFitButtonClick);
             document.getElementById('modal-cancel-btn').addEventListener('click', () => document.getElementById('fit-modal').classList.add('hidden'));
+
+            // Chart type selector logic
+            const chartTypeRadios = document.querySelectorAll('input[name="chart-type"]');
+            chartTypeRadios.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    const fitBtn = document.getElementById('fit-btn');
+                    document.querySelectorAll('.chart-type-btn').forEach(btn => btn.classList.remove('chart-type-btn-active'));
+                    e.target.nextElementSibling.classList.add('chart-type-btn-active');
+                    
+                    if (e.target.value === 'bar') {
+                        fitBtn.disabled = true;
+                        fitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    } else {
+                        fitBtn.disabled = false;
+                        fitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
+                });
+            });
         });
 
         // === CORE FUNCTIONS ===
@@ -275,6 +303,7 @@
             
             document.getElementById('fit-results-container').innerHTML = '<p class="text-gray-500">No fit performed yet.</p>';
 
+            const selectedChartType = document.querySelector('input[name="chart-type"]:checked').value;
             const xCol = document.querySelector('input[name="x-axis"]:checked').value;
             const xErrCol = document.getElementById('x-error-select').value;
             const yCheckboxes = document.querySelectorAll('.y-axis-checkbox:checked');
@@ -284,30 +313,49 @@
                 return;
             }
 
+            let finalChartType;
+            let chartLabels = null;
+
             const datasets = Array.from(yCheckboxes).map((cb, index) => {
                 const yCol = cb.value;
                 const yErrCol = document.querySelector(`.y-error-select[data-y-col="${yCol}"]`).value;
-                
-                const dataPoints = dataframe.rows.map(row => {
-                    return {
+                const color = plotColors[index % plotColors.length];
+                let dataPoints;
+
+                if (selectedChartType === 'bar') {
+                    finalChartType = 'barWithErrorBars';
+                    chartLabels = [...new Set(dataframe.rows.map(row => row[xCol]))].sort((a, b) => a - b);
+                    
+                    dataPoints = chartLabels.map(label => {
+                        const row = dataframe.rows.find(r => r[xCol] === label);
+                        if (!row) return { y: NaN }; // Handle cases where a label might not have data for a specific dataset
+                        return {
+                            y: row[yCol],
+                            yMin: yErrCol !== 'None' && row[yErrCol] != null ? row[yCol] - row[yErrCol] : undefined,
+                            yMax: yErrCol !== 'None' && row[yErrCol] != null ? row[yCol] + row[yErrCol] : undefined,
+                        };
+                    });
+                } else { // scatter
+                    finalChartType = 'scatterWithErrorBars';
+                    dataPoints = dataframe.rows.map(row => ({
                         x: row[xCol],
                         y: row[yCol],
                         xMin: xErrCol !== 'None' && row[xErrCol] != null ? row[xCol] - row[xErrCol] : undefined,
                         xMax: xErrCol !== 'None' && row[xErrCol] != null ? row[xCol] + row[xErrCol] : undefined,
                         yMin: yErrCol !== 'None' && row[yErrCol] != null ? row[yCol] - row[yErrCol] : undefined,
                         yMax: yErrCol !== 'None' && row[yErrCol] != null ? row[yCol] + row[yErrCol] : undefined,
-                    };
-                }).filter(p => !isNaN(p.x) && !isNaN(p.y));
-                
-                const color = plotColors[index % plotColors.length];
+                    })).filter(p => !isNaN(p.x) && !isNaN(p.y));
+                }
 
                 return {
                     label: yCol,
                     data: dataPoints,
                     backgroundColor: color,
+                    borderColor: color,
+                    borderWidth: 1,
                     errorBarColor: 'rgba(0, 0, 0, 0.6)',
                     errorBarWidth: 1.5,
-                    errorBarWhiskerRatio: 0.5,
+                    errorBarWhiskerSize: 6,
                     errorBarWhiskerColor: 'rgba(0, 0, 0, 0.6)'
                 };
             });
@@ -317,56 +365,30 @@
                 chartInstance.destroy();
             }
 
+            let xScaleConfig = {
+                title: { display: true, text: document.getElementById('x-label').value, font: { size: 18 } },
+                ticks: { font: { size: 14 } }
+            };
+
+            if (selectedChartType === 'bar') {
+                // For bar charts, the x-axis is categorical.
+                // We don't need to specify type: 'category' as Chart.js infers it from the `labels` array.
+            }
+
             chartInstance = new Chart(ctx, {
-                type: 'scatterWithErrorBars',
-                data: { datasets },
+                type: finalChartType,
+                data: { labels: chartLabels, datasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: {
-                            position: 'bottom',
-                            align: 'center',
-                            labels: {
-                                font: { size: 14 },
-                                boxWidth: 20,
-                                padding: 25,
-                            }
-                        },
-                        title: {
-                            display: true,
-                            text: document.getElementById('plot-title').value,
-                            font: { size: 20, weight: 'bold' },
-                             padding: {
-                                top: 10,
-                                bottom: 10 
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.dataset.label}: (${context.parsed.x}, ${context.parsed.y})`;
-                                }
-                            }
-                        }
+                        legend: { position: 'bottom', align: 'center', labels: { font: { size: 14 }, boxWidth: 20, padding: 25 } },
+                        title: { display: true, text: document.getElementById('plot-title').value, font: { size: 20, weight: 'bold' }, padding: { top: 10, bottom: 10 } },
+                        tooltip: { callbacks: { label: (c) => `${c.dataset.label}: (${c.parsed.x}, ${c.parsed.y})` } }
                     },
                     scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: document.getElementById('x-label').value,
-                                font: { size: 18 }
-                            },
-                            ticks: { font: { size: 14 } }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: document.getElementById('y-label').value,
-                                font: { size: 18 }
-                            },
-                            ticks: { font: { size: 14 } }
-                        }
+                        x: xScaleConfig,
+                        y: { title: { display: true, text: document.getElementById('y-label').value, font: { size: 18 } }, ticks: { font: { size: 14 } } }
                     }
                 }
             });
@@ -385,7 +407,6 @@
             } else if (yCols.length === 1) {
                 performLinearFit(yCols[0]);
             } else {
-                // Show modal to choose
                 const modal = document.getElementById('fit-modal');
                 const optionsContainer = document.getElementById('fit-options-container');
                 optionsContainer.innerHTML = yCols.map((col, i) => `
@@ -513,6 +534,17 @@
             }
         }
     </script>
+    <style>
+        .chart-type-btn {
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .chart-type-btn-active {
+            background-color: white;
+            color: #4f46e5; /* indigo-600 */
+            font-weight: 600;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+    </style>
 </body>
 </html>
 
