@@ -152,6 +152,7 @@
         let dataframe = { headers: [], rows: [] };
 
         const sampleDataSets = {
+            "Plot Your Own Data": `# Welcome to HamiltonPlotter!\n# Choose sample data above for examples.\n# HOW TO USE:\n# 1. Paste your data into this box from a spreadsheet (like Excel or Google Sheets).\n# 2. The first row MUST be the column titles (headers).\n# 3. Data can be separated by Tabs or Commas.\n# 4. Lines starting with # are ignored as comments.\n#\n# If something doesn't work or if you want additional functionality please tell Viva Horowitz.`,
             "Linear Motion": `# Data for an object with constant acceleration.\n# Plot Position, Velocity, and/or Acceleration vs. Time.\nTime (s)\tTime Uncertainty (s)\tPosition (m)\tPos Uncertainty (m)\tVelocity (m/s)\tVel Uncertainty (m/s)\tAcceleration (m/s^2)\tAccel Uncertainty (m/s^2)\n0.0\t0.02\t0.0\t0.2\t0.0\t0.5\t9.8\t0.4\n1.0\t0.02\t4.9\t0.2\t9.8\t0.5\t9.8\t0.4\n2.0\t0.02\t19.5\t0.3\t19.6\t0.6\t9.8\t0.4\n3.0\t0.02\t44.0\t0.3\t29.4\t0.6\t9.8\t0.4\n4.0\t0.02\t78.5\t0.4\t39.2\t0.7\t9.8\t0.4`,
             "Biology (Plant Growth)": `# Height of a plant over time under constant light.\nDay\tDay Uncertainty\tHeight (cm)\tHeight Uncertainty (cm)\n1\t0.5\t2.1\t0.2\n3\t0.5\t4.3\t0.2\n5\t0.5\t6.0\t0.3\n7\t0.5\t8.2\t0.3\n9\t0.5\t9.8\t0.3`,
             "Psychology (Hick's Law)": `# Reaction time increases with the number of choices (Hick's Law).\n# 'Bits' is calculated as log2(number_of_choices).\nBits of Information\tBits Uncertainty\tReaction Time (ms)\tRT Uncertainty (ms)\n1\t0\t320\t15\n2\t0\t460\t20\n3\t0\t590\t22\n4\t0\t710\t25\n5\t0\t880\t30`,
@@ -172,14 +173,16 @@
 
             // Populate sample data dropdown
             const sampleSelect = document.getElementById('sample-data-select');
-            Object.keys(sampleDataSets).forEach(name => {
+            const dataSetNames = Object.keys(sampleDataSets);
+            dataSetNames.forEach(name => {
                 const option = document.createElement('option');
                 option.value = name;
                 option.textContent = name;
                 sampleSelect.appendChild(option);
             });
             
-            // Load default sample data
+            // Load default sample data ("Plot Your Own Data")
+            sampleSelect.value = "Plot Your Own Data";
             loadSampleData();
 
             // Setup event listeners
