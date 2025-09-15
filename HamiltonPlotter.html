@@ -156,6 +156,7 @@
             "Biology (Plant Growth)": `# Height of a plant over time under constant light.\nDay\tDay Uncertainty\tHeight (cm)\tHeight Uncertainty (cm)\n1\t0.5\t2.1\t0.2\n3\t0.5\t4.3\t0.2\n5\t0.5\t6.0\t0.3\n7\t0.5\t8.2\t0.3\n9\t0.5\t9.8\t0.3`,
             "Psychology (Hick's Law)": `# Reaction time increases with the number of choices (Hick's Law).\n# 'Bits' is calculated as log2(number_of_choices).\nBits of Information\tBits Uncertainty\tReaction Time (ms)\tRT Uncertainty (ms)\n1\t0\t320\t15\n2\t0\t460\t20\n3\t0\t590\t22\n4\t0\t710\t25\n5\t0\t880\t30`,
             "Neuroscience (Firing Rate)": `# Firing rate of a neuron in response to stimulus intensity.\nStimulus Intensity (nA)\tIntensity Uncertainty (nA)\tFiring Rate (Hz)\tRate Uncertainty (Hz)\n10\t1.0\t5\t2\n20\t1.0\t12\t3\n30\t1.0\t19\t3\n40\t1.0\t26\t4\n50\t1.0\t34\t4`,
+            "Weekly Sales": `# Sales data for a small shop over a week.\n# Use a bar chart to compare sales by day.\nDay\tSales ($)\tSales Uncertainty ($)\nMonday\t150\t10\nTuesday\t175\t12\nWednesday\t160\t11\nThursday\t180\t15\nFriday\t210\t20\nSaturday\t250\t25\nSunday\t230\t22`,
             "Simple Pendulum": `# Data for a simple pendulum's swing.\n# Plot Angle vs. Time for sinusoidal motion.\nTime (s)\tAngle (rad)\tAngle Uncertainty (rad)\n0.00\t0.52\t0.01\n0.25\t0.37\t0.01\n0.50\t0.00\t0.01\n0.75\t-0.37\t0.01\n1.00\t-0.52\t0.01\n1.25\t-0.37\t0.01\n1.50\t0.00\t0.01`,
             "Ohm's Law": `# Data for a simple circuit to verify Ohm's Law (V=IR).\n# Plot Voltage vs. Current to find resistance.\nCurrent (A)\tCurrent Uncertainty (A)\tVoltage (V)\tVoltage Uncertainty (V)\n0.1\t0.01\t1.05\t0.05\n0.2\t0.01\t1.98\t0.05\n0.3\t0.01\t3.01\t0.05\n0.4\t0.01\t4.05\t0.05\n0.5\t0.01\t4.95\t0.05`
         };
@@ -228,7 +229,14 @@
                 const values = line.split(delimiter).map(v => v.trim());
                 const rowObj = {};
                 headers.forEach((header, i) => {
-                    rowObj[header] = parseFloat(values[i]);
+                    const value = values[i];
+                    const numValue = parseFloat(value);
+                    // If it's not a number, keep it as a string
+                    if (isNaN(numValue) && value != null && value.trim() !== '' && value.toLowerCase() !== 'nan') {
+                        rowObj[header] = value;
+                    } else {
+                        rowObj[header] = numValue;
+                    }
                 });
                 return rowObj;
             });
@@ -324,11 +332,12 @@
 
                 if (selectedChartType === 'bar') {
                     finalChartType = 'barWithErrorBars';
-                    chartLabels = [...new Set(dataframe.rows.map(row => row[xCol]))].sort((a, b) => a - b);
+                    // Use the order from the original data, do not sort.
+                    chartLabels = [...new Set(dataframe.rows.map(row => row[xCol]))];
                     
                     dataPoints = chartLabels.map(label => {
                         const row = dataframe.rows.find(r => r[xCol] === label);
-                        if (!row) return { y: NaN }; // Handle cases where a label might not have data for a specific dataset
+                        if (!row) return { y: NaN };
                         return {
                             y: row[yCol],
                             yMin: yErrCol !== 'None' && row[yErrCol] != null ? row[yCol] - row[yErrCol] : undefined,
@@ -370,9 +379,9 @@
                 ticks: { font: { size: 14 } }
             };
 
+            // For bar charts with text labels, explicitly set the type to 'category'.
             if (selectedChartType === 'bar') {
-                // For bar charts, the x-axis is categorical.
-                // We don't need to specify type: 'category' as Chart.js infers it from the `labels` array.
+                xScaleConfig.type = 'category';
             }
 
             chartInstance = new Chart(ctx, {
